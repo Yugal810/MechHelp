@@ -1,0 +1,21 @@
+{
+  "name": "mechhelp-backend",
+  "version": "1.0.0",
+  "description": "MechHelp API server",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "mechhelp": "file:..",
+    "xlsx": "^0.18.5"
+  }
+}
