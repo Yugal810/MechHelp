@@ -14,7 +14,12 @@ function pinIcon(kind = "garage") {
   });
 }
 
-export default function MapView({ origin, garages = [], activeId = null }) {
+export default function MapView({
+  origin,
+  garages = [],
+  activeId = null,
+  isCollapsed = false,
+}) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const layerRef = useRef(null);
@@ -39,15 +44,37 @@ export default function MapView({ origin, garages = [], activeId = null }) {
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    resizeObserver.observe(containerRef.current);
+
     const onResize = () => map.invalidateSize();
     window.addEventListener("resize", onResize);
 
     return () => {
+      resizeObserver.disconnect();
       window.removeEventListener("resize", onResize);
       map.remove();
       mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.invalidateSize();
+
+    const t1 = setTimeout(() => map.invalidateSize(), 50);
+    const t2 = setTimeout(() => map.invalidateSize(), 200);
+    const t3 = setTimeout(() => map.invalidateSize(), 360);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [isCollapsed]);
 
   useEffect(() => {
     const map = mapRef.current;

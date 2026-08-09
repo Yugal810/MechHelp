@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { fetchNearestGarages } from "../api";
 
 function formatDistanceText(val) {
@@ -21,15 +21,6 @@ export default function GarageSheet({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const active = useMemo(() => {
-    if (!garages?.length) return null;
-    if (!selected) return garages[0];
-    return (
-      garages.find((g) => `${g.garage_name}-${g.lat}` === selected) ||
-      garages[0]
-    );
-  }, [garages, selected]);
 
   async function handleSearch() {
     const trimmed = address.trim();
@@ -58,6 +49,7 @@ export default function GarageSheet({
         { lat: first.cust_lat, lon: first.cust_lon },
         results
       );
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       console.error(err);
       setError("Could not calculate routes right now.");
@@ -105,8 +97,6 @@ export default function GarageSheet({
           <div className="status-line error">{error}</div>
         )}
 
-
-
         {!loading &&
           !error &&
           garages?.map((g, index) => {
@@ -128,24 +118,6 @@ export default function GarageSheet({
             );
           })}
       </div>
-
-      {active && (
-        <div className="sheet-actions">
-          <a
-            className="btn-primary-block"
-            href={active.google_maps_url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Navigate · {formatDistanceText(active.distance_range)}
-          </a>
-          {active.contact ? (
-            <a className="btn-ghost-block" href={`tel:${active.contact}`}>
-              Call {active.contact}
-            </a>
-          ) : null}
-        </div>
-      )}
     </div>
   );
 }

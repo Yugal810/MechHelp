@@ -9,7 +9,13 @@ const EMPTY_FILTERS = {
   yearMode: "",
 };
 
-export default function CarFilter({ selectedCar, onSelectCar }) {
+export default function CarFilter({
+  carMode = "normal",
+  selectedCar,
+  onSelectCar,
+  isCollapsed,
+  onToggleCollapse,
+}) {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [options, setOptions] = useState({
     brands: [],
@@ -26,9 +32,13 @@ export default function CarFilter({ selectedCar, onSelectCar }) {
     onSelectCarRef.current = onSelectCar;
   }, [onSelectCar]);
 
-  const loadOptions = useCallback(async (brand, model) => {
+  const loadOptions = useCallback(async (brand, model, mode) => {
     try {
-      const data = await fetchOptions({ brand, model });
+      const data = await fetchOptions({
+        brand,
+        model,
+        type: mode || carMode,
+      });
       setOptions({
         brands: data.brands || [],
         models: data.models || [],
@@ -37,17 +47,18 @@ export default function CarFilter({ selectedCar, onSelectCar }) {
     } catch (err) {
       console.error("Error fetching options:", err);
     }
-  }, []);
+  }, [carMode]);
 
-  const runSearch = useCallback(async (nextFilters) => {
+  const runSearch = useCallback(async (nextFilters, mode) => {
     try {
-      let cars = await searchCars(nextFilters);
+      const activeMode = mode || carMode;
+      let cars = await searchCars(nextFilters, activeMode);
 
       if (cars.length === 0 && isBrandAutoFilled.current) {
         isBrandAutoFilled.current = false;
         const fallback = { ...nextFilters, brand: "" };
         setFilters(fallback);
-        cars = await searchCars(fallback);
+        cars = await searchCars(fallback, activeMode);
       }
 
       if (!cars?.length) {
@@ -75,8 +86,8 @@ export default function CarFilter({ selectedCar, onSelectCar }) {
 
       setCar(top);
 
-      // Auto-select on initial load only
-      if (isInitialLoad.current && onSelectCarRef.current) {
+      // Auto-select on initial load or mode change
+      if ((isInitialLoad.current || mode) && onSelectCarRef.current) {
         onSelectCarRef.current(top);
         isInitialLoad.current = false;
       }
@@ -87,12 +98,15 @@ export default function CarFilter({ selectedCar, onSelectCar }) {
       setCar(null);
       setStatus("Could not load vehicle specs.");
     }
-  }, []);
+  }, [carMode]);
 
+  // When carMode changes, reset filters and reload options & search
   useEffect(() => {
-    loadOptions("", "");
-    runSearch(EMPTY_FILTERS);
-  }, [loadOptions, runSearch]);
+    isBrandAutoFilled.current = false;
+    setFilters(EMPTY_FILTERS);
+    loadOptions("", "", carMode);
+    runSearch(EMPTY_FILTERS, carMode);
+  }, [carMode, loadOptions, runSearch]);
 
   function updateFilter(
     key,
@@ -115,8 +129,8 @@ export default function CarFilter({ selectedCar, onSelectCar }) {
         }
       }
 
-      loadOptions(next.brand, next.model);
-      runSearch(next);
+      loadOptions(next.brand, next.model, carMode);
+      runSearch(next, carMode);
       return next;
     });
   }
@@ -136,8 +150,8 @@ export default function CarFilter({ selectedCar, onSelectCar }) {
         isBrandAutoFilled.current = false;
       }
 
-      loadOptions(next.brand, next.model);
-      runSearch(next);
+      loadOptions(next.brand, next.model, carMode);
+      runSearch(next, carMode);
       return next;
     });
   }
@@ -145,8 +159,8 @@ export default function CarFilter({ selectedCar, onSelectCar }) {
   function resetAll() {
     isBrandAutoFilled.current = false;
     setFilters(EMPTY_FILTERS);
-    loadOptions("", "");
-    runSearch(EMPTY_FILTERS);
+    loadOptions("", "", carMode);
+    runSearch(EMPTY_FILTERS, carMode);
   }
 
   function handleSelectTopCar() {
@@ -163,7 +177,20 @@ export default function CarFilter({ selectedCar, onSelectCar }) {
     selectedCar.engine === car.engine;
 
   return (
-    <section className="specs" id="specs">
+    <section className={`specs ${isCollapsed ? "is-collapsed" : ""}`} id="specs">
+      <div className="specs-collapse-toggle-wrap">
+        <button
+          type="button"
+          className="btn-specs-toggle"
+          onClick={onToggleCollapse}
+          title={isCollapsed ? "Show Vehicle Specs" : "Hide Vehicle Specs"}
+          aria-label={isCollapsed ? "Show Vehicle Specs" : "Hide Vehicle Specs"}
+        >
+          <span className="toggle-icon">{isCollapsed ? "▲" : "▼"}</span>
+          <span>{isCollapsed ? "Show Vehicle Specs" : "Hide Vehicle Specs"}</span>
+        </button>
+      </div>
+
       <div className="specs-inner">
         <div className="specs-head">
           <div className="specs-title-group">

@@ -5,9 +5,10 @@ const distanceService = require("../services/distanceService");
 const router = express.Router();
 
 router.get("/options", (req, res) => {
-  const { brand, model, year_mode, custom_year, fuelType } = req.query;
+  const { type, brand, model, year_mode, custom_year, fuelType } = req.query;
   res.json(
     carService.getOptions({
+      type,
       brand,
       model,
       year_mode,
@@ -18,9 +19,10 @@ router.get("/options", (req, res) => {
 });
 
 router.get("/search", (req, res) => {
-  const { brand, model, year_mode, custom_year, fuelType, query } = req.query;
+  const { type, brand, model, year_mode, custom_year, fuelType, query } = req.query;
   res.json(
     carService.searchCars({
+      type,
       brand,
       model,
       year_mode,

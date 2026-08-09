@@ -13,6 +13,8 @@ export default function App() {
   const [origin, setOrigin] = useState(null);
   const [selectedCar, setSelectedCar] = useState(null);
   const [userNote, setUserNote] = useState("");
+  const [isSpecsCollapsed, setIsSpecsCollapsed] = useState(false);
+  const [carMode, setCarMode] = useState("normal"); // "normal" (default) or "premium"
 
   const selectedGarageObject =
     garages?.find((g) => `${g.garage_name}-${g.lat}` === selected) || null;
@@ -26,12 +28,13 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${isSpecsCollapsed ? "app-specs-collapsed" : ""}`}>
       <section className="hero">
         <MapView
           origin={origin}
           garages={garages || []}
           activeId={selected}
+          isCollapsed={isSpecsCollapsed}
         />
         <div className="map-veil" />
 
@@ -40,14 +43,30 @@ export default function App() {
             <h1 className="brand">
               Mech<span>Help</span>
             </h1>
-            <button
-              type="button"
-              className="btn-settings-header"
-              onClick={() => setPage("settings")}
-              title="Open Garage Management Settings"
-            >
-              Settings
-            </button>
+            <div className="header-actions">
+              <button
+                type="button"
+                className={`btn-car-mode ${carMode === "premium" ? "is-premium" : ""}`}
+                onClick={() =>
+                  setCarMode((prev) => (prev === "normal" ? "premium" : "normal"))
+                }
+                title={
+                  carMode === "premium"
+                    ? "Currently showing Premium Cars. Click to switch to Normal Cars."
+                    : "Currently showing Normal Cars. Click to switch to Premium Cars."
+                }
+              >
+                {carMode === "premium" ? "★ Premium Cars" : " Normal Cars"}
+              </button>
+              <button
+                type="button"
+                className="btn-settings-header"
+                onClick={() => setPage("settings")}
+                title="Open Garage Management Settings"
+              >
+                Settings
+              </button>
+            </div>
           </header>
 
           <div className="hero-columns">
@@ -79,8 +98,11 @@ export default function App() {
       </section>
 
       <CarFilter
+        carMode={carMode}
         selectedCar={selectedCar}
         onSelectCar={(car) => setSelectedCar(car)}
+        isCollapsed={isSpecsCollapsed}
+        onToggleCollapse={() => setIsSpecsCollapsed((prev) => !prev)}
       />
     </div>
   );

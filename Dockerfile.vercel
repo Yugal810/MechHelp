@@ -1,0 +1,24 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package manifests for dependency caching
+COPY package*.json ./
+COPY backend/package*.json ./backend/
+COPY frontend/package*.json ./frontend/
+
+# Install dependencies for root, backend, and frontend
+RUN npm run install:all
+
+# Copy remaining project source files
+COPY . .
+
+# Build Vite frontend production static assets
+RUN npm run build
+
+# Vercel functions listen on port 80 by default
+ENV PORT=80
+EXPOSE 80
+
+# Start Express server (serves backend API and frontend static build)
+CMD ["npm", "start"]

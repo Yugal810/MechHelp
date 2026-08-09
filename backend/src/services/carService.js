@@ -1,6 +1,6 @@
 const fs = require("fs");
 const XLSX = require("xlsx");
-const { EXCEL_FILE_PATH } = require("../config");
+const { NORMAL_CARS_EXCEL_PATH, PREMIUM_CARS_EXCEL_PATH } = require("../config");
 
 function isBlank(value) {
   if (value === null || value === undefined) return true;
@@ -17,18 +17,19 @@ function cellStr(value) {
 
 class CarService {
   constructor() {
-    this.rows = [];
+    this.normalRows = [];
+    this.premiumRows = [];
     this.loadExcelData();
   }
 
-  loadExcelData() {
-    if (!fs.existsSync(EXCEL_FILE_PATH)) {
-      console.warn(`⚠️ Warning: '${EXCEL_FILE_PATH}' not found`);
-      return;
+  loadSheetRows(filePath, label) {
+    if (!fs.existsSync(filePath)) {
+      console.warn(`⚠️ Warning: '${filePath}' not found for ${label}`);
+      return [];
     }
 
     try {
-      const workbook = XLSX.readFile(EXCEL_FILE_PATH);
+      const workbook = XLSX.readFile(filePath);
       const allRows = [];
 
       for (const sheetName of workbook.SheetNames) {
@@ -54,19 +55,35 @@ class CarService {
         }
       }
 
-      this.rows = allRows.filter((r) => !isBlank(r.model));
-
+      const rows = allRows.filter((r) => !isBlank(r.model));
       const uniqueBrands = [
-        ...new Set(this.rows.map((r) => r.brand).filter(Boolean)),
+        ...new Set(rows.map((r) => r.brand).filter(Boolean)),
       ].sort();
 
       console.log(
-        `✅ Loaded ${this.rows.length} clean rows across ${workbook.SheetNames.length} sheet tabs!`
+        `✅ [${label}] Loaded ${rows.length} clean rows across ${workbook.SheetNames.length} sheet tabs!`
       );
-      console.log(`📋 Brands detected: ${uniqueBrands.join(", ")}`);
+      console.log(`📋 [${label}] Brands detected: ${uniqueBrands.join(", ")}`);
+      return rows;
     } catch (e) {
-      console.error(`❌ Error loading car Excel file across sheets: ${e.message}`);
+      console.error(`❌ Error loading ${label} car Excel file across sheets: ${e.message}`);
+      return [];
     }
+  }
+
+  loadExcelData() {
+    this.normalRows = this.loadSheetRows(NORMAL_CARS_EXCEL_PATH, "Normal Cars");
+    this.premiumRows = this.loadSheetRows(PREMIUM_CARS_EXCEL_PATH, "Premium Cars");
+
+    // Fallback: If normal dataset failed to load, fall back to premium rows
+    if (!this.normalRows.length && this.premiumRows.length) {
+      this.normalRows = this.premiumRows;
+    }
+  }
+
+  _getRows(type = "normal") {
+    const isPremium = String(type).trim().toLowerCase() === "premium";
+    return isPremium ? this.premiumRows : this.normalRows;
   }
 
   _getYearVal(row) {
@@ -126,15 +143,17 @@ class CarService {
   }
 
   searchCars({
+    type = "normal",
     brand = null,
     model = null,
     year_mode = null,
     custom_year = null,
     fuelType = null,
   } = {}) {
-    if (!this.rows.length) return [];
+    const rows = this._getRows(type);
+    if (!rows.length) return [];
 
-    let filtered = [...this.rows];
+    let filtered = [...rows];
 
     if (brand && brand.trim()) {
       const q = brand.trim().toLowerCase();
@@ -193,11 +212,13 @@ class CarService {
   }
 
   getOptions({
+    type = "normal",
     brand = null,
     model = null,
     fuelType = null,
   } = {}) {
-    if (!this.rows.length) {
+    const rows = this._getRows(type);
+    if (!rows.length) {
       return {
         brands: [],
         models: [],
@@ -209,13 +230,13 @@ class CarService {
 
     const brands = [
       ...new Set(
-        this.rows
+        rows
           .map((r) => String(r.brand || "").trim())
           .filter((b) => b && !["nan", "none", ""].includes(b.toLowerCase()))
       ),
     ].sort();
 
-    let filtered = [...this.rows];
+    let filtered = [...rows];
 
     if (brand && brand.trim()) {
       const q = brand.trim().toLowerCase();

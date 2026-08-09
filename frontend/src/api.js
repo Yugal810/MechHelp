@@ -8,15 +8,16 @@ function toQuery(params) {
   return qs.toString();
 }
 
-export async function fetchOptions({ brand = "", model = "" } = {}) {
-  const query = toQuery({ brand, model });
+export async function fetchOptions({ type = "normal", brand = "", model = "" } = {}) {
+  const query = toQuery({ type, brand, model });
   const res = await fetch(`/api/cars/options?${query}`);
   if (!res.ok) throw new Error("Failed to load options");
   return res.json();
 }
 
-export async function searchCars(filters = {}) {
+export async function searchCars(filters = {}, type = "normal") {
   const query = toQuery({
+    type,
     brand: filters.brand,
     model: filters.model,
     fuelType: filters.fuelType,

@@ -6,6 +6,8 @@ const BACKEND_DIR = path.resolve(__dirname, "..");
 const ROOT_DIR = path.resolve(__dirname, "../..");
 
 module.exports = {
+  PREMIUM_CARS_EXCEL_PATH: path.join(BACKEND_DIR, "data", "cars.xlsx"),
+  NORMAL_CARS_EXCEL_PATH: path.join(BACKEND_DIR, "data", "cars_normal.xlsx"),
   EXCEL_FILE_PATH: path.join(BACKEND_DIR, "data", "cars.xlsx"),
   GARAGES_EXCEL_PATH: path.join(BACKEND_DIR, "data", "garages.xlsx"),
   FRONTEND_DIST: path.join(ROOT_DIR, "frontend", "dist"),
