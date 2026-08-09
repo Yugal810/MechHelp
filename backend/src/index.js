@@ -37,16 +37,20 @@ if (fs.existsSync(FRONTEND_DIST)) {
   });
 }
 
-const server = app.listen(PORT, () => {
-  console.log(`MechHelp API running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  const server = app.listen(PORT, () => {
+    console.log(`MechHelp API running at http://localhost:${PORT}`);
+  });
 
-server.on("error", (err) => {
-  if (err.code === "EADDRINUSE") {
-    console.error(
-      `Port ${PORT} is already in use. Stop the other process or set PORT=...`
-    );
-    process.exit(1);
-  }
-  throw err;
-});
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `Port ${PORT} is already in use. Stop the other process or set PORT=...`
+      );
+      process.exit(1);
+    }
+    throw err;
+  });
+}
+
+module.exports = app;
