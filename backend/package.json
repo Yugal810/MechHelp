@@ -16,6 +16,7 @@
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
     "mechhelp": "file:..",
+    "mongoose": "^9.9.2",
     "xlsx": "^0.18.5"
   }
 }

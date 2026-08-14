@@ -4,6 +4,7 @@ import GarageSheet from "./components/GarageSheet.jsx";
 import CarFilter from "./components/CarFilter.jsx";
 import SelectedCarCard from "./components/SelectedCarCard.jsx";
 import SettingsPage from "./components/SettingsPage.jsx";
+import logo from "./MechHelp_Logo.png";
 
 export default function App() {
   const [page, setPage] = useState("dashboard"); // "dashboard" or "settings"
@@ -15,6 +16,17 @@ export default function App() {
   const [userNote, setUserNote] = useState("");
   const [isSpecsCollapsed, setIsSpecsCollapsed] = useState(false);
   const [carMode, setCarMode] = useState("normal"); // "normal" (default) or "premium"
+  const [resetKey, setResetKey] = useState(0);
+
+  function handleResetAll() {
+    setAddress("");
+    setGarages(null);
+    setSelected(null);
+    setOrigin(null);
+    setSelectedCar(null);
+    setUserNote("");
+    setResetKey((prev) => prev + 1);
+  }
 
   const selectedGarageObject =
     garages?.find((g) => `${g.garage_name}-${g.lat}` === selected) || null;
@@ -40,9 +52,9 @@ export default function App() {
 
         <div className="hero-ui">
           <header className="brand-bar">
-            <h1 className="brand">
-              Mech<span>Help</span>
-            </h1>
+            <div className="brand-logo-container">
+              <img src={logo} alt="MechHelp" className="brand-logo-img" />
+            </div>
             <div className="header-actions">
               <button
                 type="button"
@@ -91,6 +103,7 @@ export default function App() {
                 selectedGarage={selectedGarageObject}
                 note={userNote}
                 setNote={setUserNote}
+                resetKey={resetKey}
               />
             </div>
           </div>
@@ -103,6 +116,7 @@ export default function App() {
         onSelectCar={(car) => setSelectedCar(car)}
         isCollapsed={isSpecsCollapsed}
         onToggleCollapse={() => setIsSpecsCollapsed((prev) => !prev)}
+        onResetAll={handleResetAll}
       />
     </div>
   );

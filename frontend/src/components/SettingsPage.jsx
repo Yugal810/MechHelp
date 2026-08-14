@@ -3,7 +3,6 @@ import {
   fetchGarages,
   createGarage,
   toggleGarageStatus,
-  geocodeGarageAddress,
 } from "../api";
 
 export default function SettingsPage({ onBack }) {
@@ -17,7 +16,6 @@ export default function SettingsPage({ onBack }) {
     lat: "",
     lon: "",
   });
-  const [geocoding, setGeocoding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
@@ -34,33 +32,9 @@ export default function SettingsPage({ onBack }) {
       setError(null);
     } catch (err) {
       console.error(err);
-      setError("Could not load partner garages from Excel file.");
+      setError("Could not load partner garages from database.");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleGeocode() {
-    if (!form.address.trim()) {
-      setError("Please enter an address first to auto-fill coordinates.");
-      return;
-    }
-    try {
-      setGeocoding(true);
-      setError(null);
-      const { lat, lon } = await geocodeGarageAddress(form.address);
-      setForm((prev) => ({
-        ...prev,
-        lat: String(lat),
-        lon: String(lon),
-      }));
-      setMessage("Coordinates auto-filled from Google Maps!");
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to geocode address.");
-    } finally {
-      setGeocoding(false);
     }
   }
 
@@ -79,7 +53,7 @@ export default function SettingsPage({ onBack }) {
       setSubmitting(true);
       setError(null);
       await createGarage(form);
-      setMessage("Garage added successfully and saved to garages.xlsx!");
+      setMessage("Garage added successfully and saved to database!");
       setForm({ garage_name: "", address: "", contact: "", lat: "", lon: "" });
       await loadGarages();
       setTimeout(() => setMessage(null), 4000);
@@ -100,7 +74,7 @@ export default function SettingsPage({ onBack }) {
       );
     } catch (err) {
       console.error(err);
-      setError("Failed to update garage status in Excel.");
+      setError("Failed to update garage status in database.");
     }
   }
 
@@ -117,7 +91,7 @@ export default function SettingsPage({ onBack }) {
         <div>
           <div className="settings-title-row">
             <h2>Garage Management & Settings</h2>
-            <span className="excel-badge">Excel Sync</span>
+            <span className="db-badge">Database Sync</span>
           </div>
           <p className="settings-sub">
             Add new partner garages or toggle availability. Disabled garages are
@@ -137,7 +111,7 @@ export default function SettingsPage({ onBack }) {
         <div className="settings-card form-card">
           <h3>Add New Partner Garage</h3>
           <p className="card-desc">
-            Saves directly to <code>backend/data/garages.xlsx</code>
+            Saves directly to <code>MongoDB Database</code>
           </p>
 
           <form onSubmit={handleSubmit} className="garage-form">
@@ -156,17 +130,7 @@ export default function SettingsPage({ onBack }) {
             </div>
 
             <div className="form-group">
-              <div className="label-with-action">
-                <label htmlFor="gAddress">Address *</label>
-                <button
-                  type="button"
-                  className="btn-link"
-                  onClick={handleGeocode}
-                  disabled={geocoding || !form.address.trim()}
-                >
-                  {geocoding ? "Locating..." : "Auto-Fill Coordinates"}
-                </button>
-              </div>
+              <label htmlFor="gAddress">Address *</label>
               <input
                 id="gAddress"
                 type="text"
@@ -219,7 +183,7 @@ export default function SettingsPage({ onBack }) {
               className="btn-primary-block"
               disabled={submitting}
             >
-              {submitting ? "Saving to Excel..." : "+ Add Garage to Excel"}
+              {submitting ? "Saving to Database..." : "+ Add Garage to Database"}
             </button>
           </form>
         </div>
@@ -241,7 +205,7 @@ export default function SettingsPage({ onBack }) {
           </div>
 
           {loading ? (
-            <div className="loading-state">Loading Excel data...</div>
+            <div className="loading-state">Loading Database records...</div>
           ) : (
             <div className="table-responsive">
               <table className="garage-table">

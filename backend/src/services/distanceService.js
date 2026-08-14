@@ -1,24 +1,12 @@
-const fs = require("fs");
 const axios = require("axios");
-const XLSX = require("xlsx");
-const { GARAGES_EXCEL_PATH, GOOGLE_MAPS_API_KEY } = require("../config");
-
-function isBlank(value) {
-  if (value === null || value === undefined) return true;
-  const s = String(value).trim();
-  return !s || ["nan", "none", "null"].includes(s.toLowerCase());
-}
+const Garage = require("../models/Garage");
+const { GOOGLE_MAPS_API_KEY } = require("../config");
 
 class DistanceService {
   constructor() {
-    this.cachedGarages = [];
     this.apiKey = GOOGLE_MAPS_API_KEY || "";
-    this.loadGarageData();
   }
 
-  /**
-   * Geocode address strictly using Google Maps Geocoding API
-   */
   async geocodeLocation(placeName) {
     if (!placeName || !String(placeName).trim()) {
       throw new Error("Customer address is required for geocoding.");
@@ -91,107 +79,22 @@ class DistanceService {
     );
   }
 
-  /**
-   * Load garages from garages.xlsx
-   */
-  loadGarageData() {
-    if (!fs.existsSync(GARAGES_EXCEL_PATH)) {
-      console.error(
-        `❌ Garages Excel file not found at path: ${GARAGES_EXCEL_PATH}`
-      );
-      this.cachedGarages = [];
-      return;
-    }
-
-    try {
-      const workbook = XLSX.readFile(GARAGES_EXCEL_PATH);
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-
-      this.cachedGarages = [];
-
-      let idx = 1;
-      for (const raw of rawRows) {
-        const row = {};
-        for (const [key, value] of Object.entries(raw)) {
-          row[String(key).trim().toLowerCase()] = value;
-        }
-
-        const garageName = row["partner garage"];
-        if (isBlank(garageName)) continue;
-
-        const rawLat = row.lat;
-        const rawLon = row.lon;
-        if (isBlank(rawLat) || isBlank(rawLon)) continue;
-
-        const lat = parseFloat(rawLat);
-        const lon = parseFloat(rawLon);
-        if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
-
-        const statusStr = String(row.status || "").trim().toLowerCase();
-        const enabled =
-          statusStr === "disabled" ||
-          statusStr === "false" ||
-          statusStr === "off"
-            ? false
-            : true;
-
-        this.cachedGarages.push({
-          id: idx++,
-          garage_name: String(garageName).trim(),
-          address: isBlank(row.address) ? "" : String(row.address).trim(),
-          contact: isBlank(row["contact no."])
-            ? ""
-            : String(row["contact no."]).trim(),
-          lat,
-          lon,
-          enabled,
-        });
-      }
-
-      console.log(`✅ Loaded ${this.cachedGarages.length} partner garages!`);
-    } catch (e) {
-      console.error(`❌ Error loading garages Excel file: ${e.message}`);
-    }
+  async getGarages() {
+    const garages = await Garage.find({}).lean();
+    return garages.map((g, idx) => ({
+      id: g._id.toString(),
+      s_no: idx + 1,
+      garage_name: g.garage_name,
+      address: g.address,
+      contact: g.contact,
+      lat: g.lat,
+      lon: g.lon,
+      enabled: g.is_enabled,
+      is_enabled: g.is_enabled,
+    }));
   }
 
-  /**
-   * Save current cached garages array back to garages.xlsx
-   */
-  saveGaragesToExcel() {
-    try {
-      const dataToSave = this.cachedGarages.map((g, idx) => ({
-        "S.No.": idx + 1,
-        "Partner Garage": g.garage_name,
-        Address: g.address,
-        "Contact No.": g.contact,
-        Lat: g.lat,
-        Lon: g.lon,
-        Status: g.enabled ? "Enabled" : "Disabled",
-      }));
-
-      const workbook = XLSX.utils.book_new();
-      const sheet = XLSX.utils.json_to_sheet(dataToSave);
-      XLSX.utils.book_append_sheet(workbook, sheet, "Partner Garages");
-      XLSX.writeFile(workbook, GARAGES_EXCEL_PATH);
-      console.log(`✅ Saved ${this.cachedGarages.length} garages to Excel: ${GARAGES_EXCEL_PATH}`);
-    } catch (e) {
-      console.error(`❌ Error saving garages to Excel: ${e.message}`);
-      throw new Error(`Failed to save Excel file: ${e.message}`);
-    }
-  }
-
-  /**
-   * Return all garages
-   */
-  getGarages() {
-    return this.cachedGarages;
-  }
-
-  /**
-   * Add a new garage and write to Excel
-   */
-  addGarage({ garage_name, address, contact, lat, lon }) {
+  async addGarage({ garage_name, address, contact, lat, lon }) {
     if (!garage_name || !String(garage_name).trim()) {
       throw new Error("Garage name is required.");
     }
@@ -201,38 +104,46 @@ class DistanceService {
       throw new Error("Valid Latitude and Longitude coordinates are required.");
     }
 
-    const newId = this.cachedGarages.length
-      ? Math.max(...this.cachedGarages.map((g) => g.id)) + 1
-      : 1;
-
-    const newGarage = {
-      id: newId,
+    const created = await Garage.create({
       garage_name: String(garage_name).trim(),
       address: String(address || "").trim(),
       contact: String(contact || "").trim(),
       lat: numLat,
       lon: numLon,
-      enabled: true,
-    };
+      is_enabled: true,
+    });
 
-    this.cachedGarages.push(newGarage);
-    this.saveGaragesToExcel();
-    return newGarage;
+    return {
+      id: created._id.toString(),
+      garage_name: created.garage_name,
+      address: created.address,
+      contact: created.contact,
+      lat: created.lat,
+      lon: created.lon,
+      enabled: created.is_enabled,
+      is_enabled: created.is_enabled,
+    };
   }
 
-  /**
-   * Toggle enabled/disabled status for a garage
-   */
-  toggleGarage(id) {
-    const numId = Number(id);
-    const garage = this.cachedGarages.find((g) => g.id === numId);
+  async toggleGarage(id) {
+    const garage = await Garage.findById(id);
     if (!garage) {
       throw new Error(`Garage with ID ${id} not found.`);
     }
 
-    garage.enabled = !garage.enabled;
-    this.saveGaragesToExcel();
-    return garage;
+    garage.is_enabled = !garage.is_enabled;
+    await garage.save();
+
+    return {
+      id: garage._id.toString(),
+      garage_name: garage.garage_name,
+      address: garage.address,
+      contact: garage.contact,
+      lat: garage.lat,
+      lon: garage.lon,
+      enabled: garage.is_enabled,
+      is_enabled: garage.is_enabled,
+    };
   }
 
   _formatDistanceRange(distKm, marginKm = 0.5) {
@@ -255,12 +166,8 @@ class DistanceService {
     };
   }
 
-  /**
-   * Compute nearest garages strictly using Google Maps Distance Matrix API
-   * Filter OUT disabled garages!
-   */
   async getNearestGarages(customerAddress) {
-    const activeGarages = this.cachedGarages.filter((g) => g.enabled !== false);
+    const activeGarages = await Garage.find({ is_enabled: true }).lean();
 
     if (!activeGarages.length || !String(customerAddress || "").trim()) {
       return [];
@@ -272,7 +179,6 @@ class DistanceService {
       );
     }
 
-    // 1. Geocode via Google Maps
     const [custLat, custLon] = await this.geocodeLocation(customerAddress);
     if (!custLat || !custLon) {
       throw new Error(
@@ -280,7 +186,6 @@ class DistanceService {
       );
     }
 
-    // 2. Query Google Maps Distance Matrix API ONLY for active garages
     const destinationsStr = activeGarages
       .map((g) => `${g.lat},${g.lon}`)
       .join("|");
@@ -326,7 +231,14 @@ class DistanceService {
       const rangeData = this._formatDistanceRange(distKm, 0.5);
 
       results.push({
-        ...garage,
+        id: garage._id.toString(),
+        garage_name: garage.garage_name,
+        address: garage.address,
+        contact: garage.contact,
+        lat: garage.lat,
+        lon: garage.lon,
+        enabled: garage.is_enabled,
+        is_enabled: garage.is_enabled,
         distance_km: rangeData.distance_km,
         distance_range: rangeData.distance_range,
         distance: rangeData.distance,

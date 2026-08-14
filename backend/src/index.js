@@ -18,6 +18,17 @@ app.use(
 );
 app.use(express.json());
 
+const connectDB = require("./db");
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error("Database connection error in middleware:", err.message);
+    res.status(500).json({ detail: "Database connection failure" });
+  }
+});
+
 app.use("/api/cars", carsRouter);
 app.use("/api/garages", garagesRouter);
 

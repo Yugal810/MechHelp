@@ -15,6 +15,7 @@ export default function CarFilter({
   onSelectCar,
   isCollapsed,
   onToggleCollapse,
+  onResetAll,
 }) {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [options, setOptions] = useState({
@@ -24,6 +25,7 @@ export default function CarFilter({
   });
   const [car, setCar] = useState(null);
   const [status, setStatus] = useState("Loading specs...");
+  const [isLoading, setIsLoading] = useState(true);
   const isBrandAutoFilled = useRef(false);
   const onSelectCarRef = useRef(onSelectCar);
   const isInitialLoad = useRef(true);
@@ -32,73 +34,86 @@ export default function CarFilter({
     onSelectCarRef.current = onSelectCar;
   }, [onSelectCar]);
 
-  const loadOptions = useCallback(async (brand, model, mode) => {
-    try {
-      const data = await fetchOptions({
-        brand,
-        model,
-        type: mode || carMode,
-      });
-      setOptions({
-        brands: data.brands || [],
-        models: data.models || [],
-        fuelTypes: data.fuelTypes || [],
-      });
-    } catch (err) {
-      console.error("Error fetching options:", err);
-    }
-  }, [carMode]);
-
-  const runSearch = useCallback(async (nextFilters, mode) => {
-    try {
-      const activeMode = mode || carMode;
-      let cars = await searchCars(nextFilters, activeMode);
-
-      if (cars.length === 0 && isBrandAutoFilled.current) {
-        isBrandAutoFilled.current = false;
-        const fallback = { ...nextFilters, brand: "" };
-        setFilters(fallback);
-        cars = await searchCars(fallback, activeMode);
+  const loadOptions = useCallback(
+    async (brand, model, mode) => {
+      try {
+        const data = await fetchOptions({
+          brand,
+          model,
+          type: mode || carMode,
+        });
+        setOptions({
+          brands: data.brands || [],
+          models: data.models || [],
+          fuelTypes: data.fuelTypes || [],
+        });
+      } catch (err) {
+        console.error("Error fetching options:", err);
       }
+    },
+    [carMode]
+  );
 
-      if (!cars?.length) {
+  const runSearch = useCallback(
+    async (nextFilters, mode) => {
+      setIsLoading(true);
+      try {
+        const activeMode = mode || carMode;
+        let cars = await searchCars(nextFilters, activeMode);
+
+        if (cars.length === 0 && isBrandAutoFilled.current) {
+          isBrandAutoFilled.current = false;
+          const fallback = { ...nextFilters, brand: "" };
+          setFilters(fallback);
+          cars = await searchCars(fallback, activeMode);
+        }
+
+        if (!cars?.length) {
+          setCar(null);
+          setStatus("No vehicle found. Please check details.");
+          if (onSelectCarRef.current) {
+            onSelectCarRef.current(null);
+          }
+          return;
+        }
+
+        // Display strictly 1 top matched car
+        const userYear = nextFilters.customYear || nextFilters.yearMode || "";
+        const top = { ...cars[0], userYear };
+        const uniqueBrands = [
+          ...new Set(cars.map((c) => c.brand).filter((b) => b && b !== "-")),
+        ];
+
+        if (nextFilters.model && uniqueBrands.length === 1) {
+          isBrandAutoFilled.current = true;
+          setFilters((prev) =>
+            prev.brand === uniqueBrands[0]
+              ? prev
+              : { ...prev, brand: uniqueBrands[0] }
+          );
+        } else if (!nextFilters.model) {
+          isBrandAutoFilled.current = false;
+        }
+
+        setCar(top);
+
+        // Auto-select on initial load or mode change
+        if ((isInitialLoad.current || mode) && onSelectCarRef.current) {
+          onSelectCarRef.current(top);
+          isInitialLoad.current = false;
+        }
+
+        setStatus("");
+      } catch (err) {
+        console.error("Error searching cars:", err);
         setCar(null);
-        setStatus("No vehicle matches those filters.");
-        return;
+        setStatus("Could not load vehicle specs.");
+      } finally {
+        setIsLoading(false);
       }
-
-      // Display strictly 1 top matched car
-      const top = cars[0];
-      const uniqueBrands = [
-        ...new Set(cars.map((c) => c.brand).filter((b) => b && b !== "-")),
-      ];
-
-      if (nextFilters.model && uniqueBrands.length === 1) {
-        isBrandAutoFilled.current = true;
-        setFilters((prev) =>
-          prev.brand === uniqueBrands[0]
-            ? prev
-            : { ...prev, brand: uniqueBrands[0] }
-        );
-      } else if (!nextFilters.model) {
-        isBrandAutoFilled.current = false;
-      }
-
-      setCar(top);
-
-      // Auto-select on initial load or mode change
-      if ((isInitialLoad.current || mode) && onSelectCarRef.current) {
-        onSelectCarRef.current(top);
-        isInitialLoad.current = false;
-      }
-
-      setStatus("");
-    } catch (err) {
-      console.error("Error searching cars:", err);
-      setCar(null);
-      setStatus("Could not load vehicle specs.");
-    }
-  }, [carMode]);
+    },
+    [carMode]
+  );
 
   // When carMode changes, reset filters and reload options & search
   useEffect(() => {
@@ -161,11 +176,15 @@ export default function CarFilter({
     setFilters(EMPTY_FILTERS);
     loadOptions("", "", carMode);
     runSearch(EMPTY_FILTERS, carMode);
+    if (onResetAll) {
+      onResetAll();
+    }
   }
 
   function handleSelectTopCar() {
     if (car && onSelectCar) {
-      onSelectCar(car);
+      const currentUserYear = filters.customYear || filters.yearMode || "";
+      onSelectCar({ ...car, userYear: currentUserYear });
     }
   }
 
@@ -173,8 +192,7 @@ export default function CarFilter({
     car &&
     selectedCar &&
     selectedCar.brand === car.brand &&
-    selectedCar.model === car.model &&
-    selectedCar.engine === car.engine;
+    selectedCar.model === car.model;
 
   return (
     <section className={`specs ${isCollapsed ? "is-collapsed" : ""}`} id="specs">
@@ -216,6 +234,8 @@ export default function CarFilter({
                   list="brandOptions"
                   placeholder="BMW, Audi..."
                   value={filters.brand}
+                  onFocus={(e) => e.target.select()}
+                  onClick={(e) => e.target.select()}
                   onChange={(e) => updateFilter("brand", e.target.value)}
                 />
                 <button
@@ -242,6 +262,8 @@ export default function CarFilter({
                   list="modelOptions"
                   placeholder="320d..."
                   value={filters.model}
+                  onFocus={(e) => e.target.select()}
+                  onClick={(e) => e.target.select()}
                   onChange={(e) => updateFilter("model", e.target.value)}
                 />
                 <button
@@ -263,27 +285,29 @@ export default function CarFilter({
             <div className="field">
               <label htmlFor="fuelInput">Fuel</label>
               <div className="field-control">
-                <input
+                <select
                   id="fuelInput"
-                  list="fuelOptions"
-                  placeholder="Diesel, Petrol..."
                   value={filters.fuelType}
                   onChange={(e) => updateFilter("fuelType", e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="clear-x"
-                  aria-label="Clear fuel"
-                  onClick={() => clearField("fuelType")}
                 >
-                  ×
-                </button>
+                  <option value="">Any Fuel</option>
+                  {options.fuelTypes.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+                {filters.fuelType && (
+                  <button
+                    type="button"
+                    className="clear-x"
+                    aria-label="Clear fuel"
+                    onClick={() => clearField("fuelType")}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
-              <datalist id="fuelOptions">
-                {options.fuelTypes.map((f) => (
-                  <option key={f} value={f} />
-                ))}
-              </datalist>
             </div>
 
             <div className="field">
@@ -329,7 +353,7 @@ export default function CarFilter({
             <div className="result-top">
               <div className="title-with-badge">
                 <h3>
-                  {car.brand} {car.model}
+                  {car.brand} {car.model}{car.userYear ? ` ${car.userYear}` : ""}
                 </h3>
                 {isSelected ? (
                   <span className="selected-tag">Selected</span>
@@ -339,20 +363,28 @@ export default function CarFilter({
               </div>
               <span className="year-tag">{car.year || "Year n/a"}</span>
             </div>
+
             <div className="spec-stats">
               <div className="spec-stat">
                 <small>Fuel</small>
-                <strong>{car.fuel || car.fueltype || "—"}</strong>
-              </div>
-              <div className="spec-stat">
-                <small>Engine</small>
-                <strong>{car.engine || "—"}</strong>
+                <strong>{car.fuelType || car.fuel || car.fueltype || "—"}</strong>
               </div>
               <div className="spec-stat">
                 <small>Oil capacity</small>
                 <strong>
-                  {car["oil capacity (l)"] || car.oil_capacity || "—"} L
+                  {car.oil_capacity || car["oil capacity (l)"] || car.oilCapacity || "—"}
+                  {car.oil_capacity || car["oil capacity (l)"] || car.oilCapacity ? " L" : ""}
                 </strong>
+              </div>
+            </div>
+          </div>
+        ) : !isLoading && status ? (
+          <div className="result-panel empty-match-panel">
+            <div className="no-match-box">
+              <span className="no-match-icon">⚠️</span>
+              <div className="no-match-text">
+                <strong>No matching vehicle found</strong>
+                <p>Please check details (Brand, Model, Fuel, or Year) and try again.</p>
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function formatDateToYYYYMMDD(dateObj) {
   if (!dateObj || isNaN(dateObj.getTime())) return "";
@@ -13,12 +13,22 @@ export default function SelectedCarCard({
   selectedGarage,
   note,
   setNote,
+  resetKey,
 }) {
   const [bookingDate, setBookingDate] = useState("");
   const [months, setMonths] = useState("");
   const [weeks, setWeeks] = useState("");
   const [days, setDays] = useState("");
   const [copied, setCopied] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+
+  useEffect(() => {
+    setSelectedPlan(null);
+    setBookingDate("");
+    setMonths("");
+    setWeeks("");
+    setDays("");
+  }, [car?.id, car?.brand, car?.model, resetKey]);
 
   // Safely extract garage name string whether selectedGarage is an object or string
   const garageDisplayName =
@@ -52,13 +62,20 @@ export default function SelectedCarCard({
     setBookingDate(formatDateToYYYYMMDD(target));
   }
 
+  const litePrice = car?.mech_lite || car?.["mech lite"] || car?.mechLite;
+  const basicPrice = car?.mech_basic || car?.["mech basic"] || car?.mechBasic;
+  const proPrice = car?.mech_pro || car?.["mech pro"] || car?.mechPro;
+  const hasPricing = litePrice || basicPrice || proPrice;
+
   function handleCopy() {
     if (!car) return;
 
     const brand = car.brand || "n/a";
     const model = car.model || "n/a";
-    const fuel = car.fuel || car.fueltype || "n/a";
-    const oilCapacity = car["oil capacity (l)"] || car.oil_capacity || "n/a";
+    const userYearStr = car.userYear ? ` ${car.userYear}` : "";
+    const fullCarHeader = `${brand} ${model}${userYearStr}`.trim();
+    const fuel = car.fuelType || car.fuel || car.fueltype || "n/a";
+    const oilCapacity = car.oil_capacity || car["oil capacity (l)"] || car.oilCapacity || "n/a";
 
     let reminderDate = "";
     if (bookingDate) {
@@ -77,17 +94,29 @@ export default function SelectedCarCard({
       }
     }
 
+    const planText = selectedPlan
+      ? `${selectedPlan.toUpperCase()} (₹${
+          selectedPlan === "Lite"
+            ? litePrice
+            : selectedPlan === "Basic"
+            ? basicPrice
+            : proPrice
+        })`
+      : "NIL";
+
     const noteText = note?.trim() || "";
 
     const summaryText = [
-      `${brand}`,
-      `${model}`,
+      fullCarHeader,
       `Fuel type: ${fuel}`,
-      `Oil capacity: ${oilCapacity}`,
+      `Oil capacity: ${oilCapacity} ${oilCapacity !== "n/a" ? "L" : ""}`,
       `Garage name: ${garageDisplayName}`,
       `Reminder date: ${reminderDate || "None"}`,
+      `Selected plan: ${planText}`,
       `My note: ${noteText}`,
-    ].join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     navigator.clipboard.writeText(summaryText);
     setCopied(true);
@@ -96,17 +125,68 @@ export default function SelectedCarCard({
 
   return (
     <div className="selected-car-card">
-      <div className="selected-car-header">
-        <h3>Selected Vehicle</h3>
-      </div>
-
       {car ? (
         <div className="selected-car-body">
-          <div className="car-main-info">
-            <h4 className="car-title">
-              {car.brand} {car.model}
-            </h4>
+          <div className="selected-car-top-bar">
+            <div className="car-main-info">
+              <span className="selected-car-subtitle">Selected Vehicle</span>
+              <h4 className="car-title">
+                {car.brand} {car.model}{car.userYear ? ` ${car.userYear}` : ""}
+              </h4>
+            </div>
+
+            <div className="spec-stats inline-stats">
+              <div className="spec-stat">
+                <small>Fuel</small>
+                <strong>{car.fuelType || car.fuel || car.fueltype || "—"}</strong>
+              </div>
+              <div className="spec-stat">
+                <small>Oil capacity</small>
+                <strong>
+                  {car.oil_capacity || car["oil capacity (l)"] || car.oilCapacity || "—"}
+                  {car.oil_capacity || car["oil capacity (l)"] || car.oilCapacity ? " L" : ""}
+                </strong>
+              </div>
+            </div>
           </div>
+
+          {hasPricing && (
+            <div className="pricing-plans-section inline-pricing">
+              <div className="plans-header-label">Service Plans</div>
+              <div className="pricing-plans-grid">
+                <div
+                  className={`plan-chip plan-lite ${selectedPlan === "Lite" ? "is-selected" : ""}`}
+                  onClick={() => setSelectedPlan(selectedPlan === "Lite" ? null : "Lite")}
+                  role="button"
+                  tabIndex={0}
+                  title="Click to select Lite plan"
+                >
+                  <span className="plan-badge">Lite</span>
+                  <span className="plan-amount">₹{litePrice}</span>
+                </div>
+                <div
+                  className={`plan-chip plan-basic ${selectedPlan === "Basic" ? "is-selected" : ""}`}
+                  onClick={() => setSelectedPlan(selectedPlan === "Basic" ? null : "Basic")}
+                  role="button"
+                  tabIndex={0}
+                  title="Click to select Basic plan"
+                >
+                  <span className="plan-badge">Basic</span>
+                  <span className="plan-amount">₹{basicPrice}</span>
+                </div>
+                <div
+                  className={`plan-chip plan-pro ${selectedPlan === "Pro" ? "is-selected" : ""}`}
+                  onClick={() => setSelectedPlan(selectedPlan === "Pro" ? null : "Pro")}
+                  role="button"
+                  tabIndex={0}
+                  title="Click to select Pro plan"
+                >
+                  <span className="plan-badge">Pro</span>
+                  <span className="plan-amount">₹{proPrice}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {selectedGarage && (
             <div className="selected-garage-line">
@@ -166,7 +246,7 @@ export default function SelectedCarCard({
                   if (input && typeof input.showPicker === "function") {
                     try {
                       input.showPicker();
-                    } catch (err) {}
+                    } catch (err) { }
                   }
                 }}
               >
@@ -179,7 +259,7 @@ export default function SelectedCarCard({
                     if (typeof e.target.showPicker === "function") {
                       try {
                         e.target.showPicker();
-                      } catch (err) {}
+                      } catch (err) { }
                     }
                   }}
                   onChange={(e) => {

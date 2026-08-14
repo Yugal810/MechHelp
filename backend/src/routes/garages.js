@@ -4,9 +4,9 @@ const distanceService = require("../services/distanceService");
 const router = express.Router();
 
 // GET all registered garages with status
-router.get("/", (_req, res) => {
+router.get("/", async (_req, res) => {
   try {
-    const garages = distanceService.getGarages();
+    const garages = await distanceService.getGarages();
     res.json(garages);
   } catch (err) {
     console.error("Error fetching garages:", err);
@@ -14,11 +14,11 @@ router.get("/", (_req, res) => {
   }
 });
 
-// POST add a new garage and write to Excel
-router.post("/", (req, res) => {
+// POST add a new garage
+router.post("/", async (req, res) => {
   try {
     const { garage_name, address, contact, lat, lon } = req.body;
-    const newGarage = distanceService.addGarage({
+    const newGarage = await distanceService.addGarage({
       garage_name,
       address,
       contact,
@@ -33,10 +33,10 @@ router.post("/", (req, res) => {
 });
 
 // PATCH toggle enable/disable status for a garage
-router.patch("/:id/toggle", (req, res) => {
+router.patch("/:id/toggle", async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedGarage = distanceService.toggleGarage(id);
+    const updatedGarage = await distanceService.toggleGarage(id);
     res.json(updatedGarage);
   } catch (err) {
     console.error("Error toggling garage:", err.message);
