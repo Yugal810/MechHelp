@@ -1,34 +1,41 @@
 const mongoose = require("mongoose");
 require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
 
-const MONGODB_URI = process.env.MONGODB_URI;
+let cached = global.mongoose;
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
 
-let isConnected = false;
+async function connectDB() {
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
+  }
 
-async function connectDB(retries = 3, delayMs = 1500) {
-  if (isConnected && mongoose.connection.readyState === 1) return;
-  if (!MONGODB_URI) {
+  const mongoUri = process.env.MONGODB_URI;
+  if (!mongoUri) {
     throw new Error("MONGODB_URI environment variable is not defined");
   }
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const db = await mongoose.connect(MONGODB_URI, {
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 10000,
-      });
-      isConnected = db.connections[0].readyState === 1;
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 5000,
+    };
+
+    cached.promise = mongoose.connect(mongoUri, opts).then((m) => {
       console.log("✅ Successfully connected to MongoDB Atlas!");
-      return;
-    } catch (error) {
-      console.warn(`⚠️ MongoDB connection attempt ${attempt}/${retries} failed: ${error.message}`);
-      if (attempt === retries) {
-        console.error("❌ All MongoDB connection attempts failed.");
-        throw error;
-      }
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
+      return m;
+    });
   }
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+
+  return cached.conn;
 }
 
 module.exports = connectDB;
