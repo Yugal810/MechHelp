@@ -59,8 +59,7 @@ class DistanceService {
 
         if (res.data?.status === "REQUEST_DENIED") {
           throw new Error(
-            `Google Maps Geocoding API failed with status: REQUEST_DENIED. ${
-              res.data?.error_message || "Check billing & API key permissions."
+            `Google Maps Geocoding API failed with status: REQUEST_DENIED. ${res.data?.error_message || "Check billing & API key permissions."
             }`
           );
         }
@@ -205,8 +204,7 @@ class DistanceService {
 
     if (res.data?.status !== "OK") {
       throw new Error(
-        `Google Maps Distance Matrix API failed with status: ${
-          res.data?.status
+        `Google Maps Distance Matrix API failed with status: ${res.data?.status
         }. ${res.data?.error_message || ""}`
       );
     }
@@ -220,8 +218,7 @@ class DistanceService {
 
       if (!elem || elem.status !== "OK") {
         throw new Error(
-          `Google Maps Distance Matrix API could not calculate route to garage: ${
-            garage.garage_name
+          `Google Maps Distance Matrix API could not calculate route to garage: ${garage.garage_name
           } (status: ${elem?.status || "UNKNOWN"})`
         );
       }

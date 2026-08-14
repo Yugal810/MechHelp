@@ -30,7 +30,9 @@ app.use(async (req, res, next) => {
 });
 
 app.use("/api/cars", carsRouter);
+app.use("/cars", carsRouter);
 app.use("/api/garages", garagesRouter);
+app.use("/garages", garagesRouter);
 
 if (fs.existsSync(FRONTEND_DIST)) {
   app.use(express.static(FRONTEND_DIST));

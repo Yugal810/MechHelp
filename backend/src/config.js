@@ -12,6 +12,5 @@ module.exports = {
   GARAGES_EXCEL_PATH: path.join(BACKEND_DIR, "data", "garages.xlsx"),
   FRONTEND_DIST: path.join(ROOT_DIR, "frontend", "dist"),
   PORT: process.env.PORT || 8000,
-  GOOGLE_MAPS_API_KEY:
-    process.env.GOOGLE_MAPS_API_KEY || "AIzaSyDp_eYWjRwtEkvRygtLn477orOvdNL36kc",
+  GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || "",
 };

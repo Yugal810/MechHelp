@@ -1,9 +1,7 @@
 const mongoose = require("mongoose");
 require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
 
-const MONGODB_URI =
-  process.env.MONGODB_URI ||
-  "mongodb+srv://sonparatey_db_user:pgYGYhorslWaGJnb@mechhelpcluster.hrzzmkp.mongodb.net/mechhelp?appName=MechHelpCluster";
+const MONGODB_URI = process.env.MONGODB_URI;
 
 let isConnected = false;
 
